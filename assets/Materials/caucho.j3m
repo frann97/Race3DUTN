@@ -1,0 +1,7 @@
+Material My Material : Common/MatDefs/Light/Lighting.j3md {
+     MaterialParameters {
+        LightMap : "Textures/weel.jpg"
+     }
+    AdditionalRenderState {
+    }
+}

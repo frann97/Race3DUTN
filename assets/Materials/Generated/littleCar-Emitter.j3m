@@ -1,0 +1,16 @@
+Material MyMaterial : Common/MatDefs/Misc/Particle.j3md {
+    MaterialParameters {
+        Quadratic : 737.54224
+    }
+    AdditionalRenderState {
+        PointSprite On
+        FaceCull Back
+        AlphaTestFalloff 0.0
+        DepthWrite On
+        ColorWrite On
+        PolyOffset 0.0 0.0
+        DepthTest On
+        Blend Off
+        Wireframe Off
+    }
+}
