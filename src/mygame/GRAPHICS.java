@@ -5,6 +5,7 @@
  */
 package mygame;
 
+import animations.particleAnimations;
 import com.jme3.app.Application;
 import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AbstractAppState;
@@ -49,6 +50,9 @@ import com.jme3.terrain.heightmap.ImageBasedHeightMap;
 import com.jme3.texture.Texture;
 import com.jme3.texture.Texture.WrapMode;
 import com.jme3.util.SkyFactory;
+import sounds.Audio3D;
+import statics.Constant;
+import userInterface.GUI;
 
 public class GRAPHICS extends AbstractAppState implements ActionListener, PhysicsCollisionListener  {
     
@@ -60,12 +64,8 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
     private final Node localRootNode = new Node("Level 1");
     
     //player variables
-    private static final int MAX_LIFE = 200;
-    private static final int SP_X = 146;
-    private static final int SP_Y = -100;
-    private static final int SP_Z = 1;
     private final Node vehicleNode = new Node("vehicleNode");
-    private double endurance = MAX_LIFE;
+    private double endurance = Constant.MAX_LIFE;
     private VehicleControl vehicle;
     private final float accelerationForce = 500.0f;
     private final float deaccelerationForce = 100.0f;
@@ -76,11 +76,10 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
     final private Vector3f jumpForce = new Vector3f(0, 3000, 0);
     
     //GUI VARIABLES
-    private final Node GUInterface;
-    private BitmapFont myFont;
+    private final GUI GUInterface;
     
-    private BitmapText guiLife;
-    private BitmapText guiSpeed;
+    //Particle variables
+    private final particleAnimations pAnimations;
     
     //camera variables
     private final FlyByCamera flyByCamera;
@@ -88,10 +87,7 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
     private ChaseCamera chaseCam;
     
     //audio variables
-    private AudioNode audio_brakes;
-    private AudioNode audio_nature;
-    private AudioNode audio_engineGurgle;
-    private AudioNode audio_horn;
+    private final Audio3D audio;
     
     // terrain variables
     private TerrainQuad terrain;
@@ -109,7 +105,9 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
         assetManager = app.getAssetManager();
         inputManager = app.getInputManager();
         flyByCamera = app.getFlyByCamera();
-        GUInterface = app.getGuiNode();
+        GUInterface = new GUI(app.getGuiNode(), assetManager);
+        pAnimations = new particleAnimations(assetManager);
+        audio = new Audio3D(rootNode, assetManager);
         camera = app.getCamera();
     }
 
@@ -118,6 +116,7 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
     @Override
     public void initialize(AppStateManager stateManager, Application app) {
         super.initialize(stateManager, app);
+        
         bulletAppState = new BulletAppState();
         stateManager.attach(bulletAppState);
         bulletAppState.setDebugEnabled(false);
@@ -130,7 +129,6 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
         buildPlayer();
         setUpLight();
         initializeHud();
-        initAudio();
     }
     
     private void TerrainCreator(){
@@ -305,7 +303,6 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
         
         //create a compound shape and attach the BoxCollisionShape for the car body at 0,1,0
         //this shifts the effective center of mass of the BoxCollisionShape to 0,-1,0
-        Spatial mainChais = carNode.getChild("mainChasis");
         CompoundCollisionShape compoundShape = new CompoundCollisionShape();
         BoxCollisionShape box = new BoxCollisionShape(new Vector3f(1.2f, 0.5f, 2.8f));
         compoundShape.addChildShape(box, new Vector3f(0, 1, 0));
@@ -316,13 +313,13 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
         
         
         //making smoke
-        attachSmoke((Node) carNode.getChild("tailpipe"));
+        pAnimations.attachSmoke((Node) carNode.getChild("tailpipe"));
 
         //making weels
         attachWeels(vehicleNode);
         
         //start up position
-        vehicle.setPhysicsLocation(new Vector3f(SP_X, SP_Y, SP_Z));
+        vehicle.setPhysicsLocation(new Vector3f(Constant.SP_X, Constant.SP_Y, Constant.SP_Z));
         rootNode.attachChild(vehicleNode);
 
         //i add this object to the physics enviroment
@@ -337,16 +334,7 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
     
     @Override
     public void update(float tpf) {
-        
-        //GUI UPDATES
-        if(endurance >= 0){
-            guiLife.setText("LIFE: " + (int)((endurance * 100) / MAX_LIFE) + "%");
-        }else{
-            guiLife.setText("LIFE: DEAD!");
-            guiLife.setColor(ColorRGBA.Red);
-        }
-        
-        guiSpeed.setText("Speed: " +(int) vehicle.getCurrentVehicleSpeedKmHour());
+        GUInterface.UpdateHUD(endurance, vehicle);
     }
     
     @Override
@@ -359,7 +347,7 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
             endurance -= impactDamage;
         }
         
-        if(endurance <= 0){setOnFire((Node) vehicleNode.getChild("engine"));}
+        if(endurance <= 0){pAnimations.setOnFire((Node) vehicleNode.getChild("engine"));}
     }
     
     @Override
@@ -390,10 +378,10 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
                 } else if (name.equals("Downs")) {
                     if (keyPressed) {
                         vehicle.brake(brakeForce);
-                        if (vehicle.getCurrentVehicleSpeedKmHour() > 1) {audio_brakes.play();}
+                        if (vehicle.getCurrentVehicleSpeedKmHour() > 1) {audio.playBrakes();}
                     } else {
                         vehicle.brake(0f);
-                        audio_brakes.stop();
+                        audio.stopBrakes();
                     }
                 } else if (name.equals("Reverse")) {
                     if (keyPressed) {
@@ -404,7 +392,7 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
                     vehicle.accelerate(deaccelerationValue);
                 } else if (name.equals("Horn")) {
                     if (keyPressed) {
-                        audio_horn.play();
+                        audio.playHorn();
                     }
                     vehicle.accelerate(deaccelerationValue);
                 } else if (name.equals("Space")) {
@@ -414,7 +402,7 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
                 } else if (name.equals("Reset")) {
                     if (keyPressed) {
                         System.out.println("Reset");
-                        vehicle.setPhysicsLocation(new Vector3f(SP_X, SP_Y, SP_Z));
+                        vehicle.setPhysicsLocation(new Vector3f(Constant.SP_X, Constant.SP_Y, Constant.SP_Z));
                         vehicle.setPhysicsRotation(new Matrix3f());
                         vehicle.setLinearVelocity(Vector3f.ZERO);
                         vehicle.setAngularVelocity(Vector3f.ZERO);
@@ -426,138 +414,12 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
     }   
     
     // ---------------------------------- ENGINE ---------------------------------------------
-    
-    
-    
-    
-    
-    
-    
-    
-    // ---------------------------------- PARTICLES ---------------------------------------------
-    public void setOnFire(Node target){
-        /** Uses Texture from jme3-test-data library! */
-        ParticleEmitter fireEffect = new ParticleEmitter("Emitter", ParticleMesh.Type.Triangle, 30);
-        Material fireMat = new Material(assetManager, "Common/MatDefs/Misc/Particle.j3md");
-        fireMat.setTexture("Texture", assetManager.loadTexture("Textures/flame.png"));
-        fireEffect.setMaterial(fireMat);
-        fireEffect.setImagesX(2); fireEffect.setImagesY(2); // 2x2 texture animation
-        fireEffect.setEndColor( new ColorRGBA(1f, 0f, 0f, 1f) );   // red
-        fireEffect.setStartColor( new ColorRGBA(1f, 1f, 0f, 0.5f) ); // yellow
-        fireEffect.getParticleInfluencer().setInitialVelocity(new Vector3f(0, 2, 0));
-        fireEffect.setStartSize(0.9f);
-        fireEffect.setEndSize(0.3f);
-        fireEffect.setGravity(0f,0f,0f);
-        fireEffect.setLowLife(0.5f);
-        fireEffect.setHighLife(3f);
-        fireEffect.setNumParticles(600);
-        fireEffect.getParticleInfluencer().setVelocityVariation(0.3f);
-        target.attachChild(fireEffect);            
-    }
-    
-    public void explode(Node target){
-        /** Explosion effect. Uses Texture from jme3-test-data library! */ 
-        ParticleEmitter debrisEffect = new ParticleEmitter("Debris", ParticleMesh.Type.Triangle, 10);
-        Material debrisMat = new Material(assetManager, "Common/MatDefs/Misc/Particle.j3md");
-        debrisMat.setTexture("Texture", assetManager.loadTexture("Textures/Debris.png"));
-        debrisEffect.setMaterial(debrisMat);
-        debrisEffect.setImagesX(3); debrisEffect.setImagesY(3); // 3x3 texture animation
-        debrisEffect.setRotateSpeed(4);
-        debrisEffect.setSelectRandomImage(true);
-        debrisEffect.getParticleInfluencer().setInitialVelocity(new Vector3f(0, 4, 0));
-        debrisEffect.setStartColor(new ColorRGBA(1f, 1f, 1f, 1f));
-        debrisEffect.setGravity(0f,6f,0f);
-        debrisEffect.getParticleInfluencer().setVelocityVariation(.60f);
-        target.attachChild(debrisEffect);
-        debrisEffect.emitAllParticles();
-       
-    }
-    
-    private void attachSmoke(Node target){
-        ParticleEmitter smoke = new ParticleEmitter("Emitter", Type.Triangle, 30);
-        Material mat_red = new Material(assetManager, "Common/MatDefs/Misc/Particle.j3md");
-        mat_red.setTexture("Texture", assetManager.loadTexture("Textures/Smoke.png"));
-        smoke.setMaterial(mat_red);
-        smoke.setImagesX(15); smoke.setImagesY(1); // 2x2 texture animation
-        smoke.setEndColor(  new ColorRGBA(1f, 1f, 1f, 1f));   // white
-        smoke.setStartColor(new ColorRGBA(0f, 0f, 0f, 0f)); // black
-        smoke.getParticleInfluencer().setInitialVelocity(new Vector3f(0, .5f, 0));
-        smoke.setStartSize(1.5f);
-        smoke.setEndSize(0.1f);
-        smoke.setGravity(0,-1,.5f);
-        smoke.setLowLife(0.5f);
-        smoke.setHighLife(3f);
-        smoke.getParticleInfluencer().setVelocityVariation(0.3f);
-        target.attachChild(smoke);
-    }
-    // ---------------------------------- PARTICLES ---------------------------------------------
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
     // ---------------------------------- GUI ---------------------------------------------
     private void initializeHud(){
-        loadFonts();
-        
-        drawText(ColorRGBA.Green, "LIFE: " + endurance, 300, 0, guiLife, 30);
-        drawText(ColorRGBA.Green, "Speed: " + (int)vehicle.getCurrentVehicleSpeedKmHour(), 500, 0, guiSpeed, 30);
-    }
-    
-    private void  loadFonts(){
-        myFont = (BitmapFont) assetManager.loadFont("Interface/fonts/DejaVuSansLight.fnt");
-        
-        guiLife = new BitmapText(myFont, false);
-        guiSpeed = new BitmapText(myFont, false);
-    }
-    
-    public void drawText(ColorRGBA color, String text, int X, int Y, BitmapText gText, int size){
-        gText.setSize(size);
-        gText.setColor(color);                                        // font color
-        gText.setText(text);                                          // the text
-        gText.setLocalTranslation(X, gText.getLineHeight(), Y);     // position
-        GUInterface.attachChild(gText);
+        GUInterface.drawLife(ColorRGBA.Green, "LIFE: " + endurance, 300, 0, 30);
+        GUInterface.drawSpeed(ColorRGBA.Green, "Speed: " + (int)vehicle.getCurrentVehicleSpeedKmHour(), 500, 0, 30);
     }
     // ---------------------------------- GUI ---------------------------------------------
-    
-    
-    
-    private void initAudio(){
-        /** We create two audio nodes. */
-        /* gun shot sound is to be triggered by a mouse click. */
-        audio_brakes = new AudioNode(assetManager, "Sounds/brakes.wav", DataType.Buffer);
-        audio_brakes.setPositional(false);
-        audio_brakes.setLooping(false);
-        audio_brakes.setVolume(2);
-        rootNode.attachChild(audio_brakes);
-        
-        audio_horn = new AudioNode(assetManager, "Sounds/sf_horn_21.wav", DataType.Buffer);
-        audio_horn.setPositional(false);
-        audio_horn.setLooping(false);
-        audio_horn.setVolume(2);
-        rootNode.attachChild(audio_horn);
 
-        /* nature sound - keeps playing in a loop. */
-        audio_nature = new AudioNode(assetManager, "Sounds/forest.ogg", DataType.Stream);
-        audio_nature.setLooping(true);  // activate continuous playing
-        audio_nature.setPositional(false);
-        audio_nature.setVolume(3);
-        rootNode.attachChild(audio_nature);
-        audio_nature.play(); // play continuously!
-        
-        /* nature sound - keeps playing in a loop. */
-        audio_engineGurgle = new AudioNode(assetManager, "Sounds/engine_gurgle.ogg", DataType.Stream);
-        audio_engineGurgle.setLooping(true);  // activate continuous playing
-        audio_engineGurgle.setPositional(false);
-        audio_engineGurgle.setVolume(0.2f);
-        rootNode.attachChild(audio_engineGurgle);
-        audio_engineGurgle.play(); // play continuously!
-        
-        
-    }
 }
