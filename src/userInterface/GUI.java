@@ -30,6 +30,7 @@ public class GUI {
         assetManager = asset;
         
         loadFonts();
+        
     }
     
     private void  loadFonts(){

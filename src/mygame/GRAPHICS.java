@@ -105,6 +105,7 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
         assetManager = app.getAssetManager();
         inputManager = app.getInputManager();
         flyByCamera = app.getFlyByCamera();
+        app.setDisplayStatView(false);
         GUInterface = new GUI(app.getGuiNode(), assetManager);
         pAnimations = new particleAnimations(assetManager);
         audio = new Audio3D(rootNode, assetManager);
@@ -419,6 +420,8 @@ public class GRAPHICS extends AbstractAppState implements ActionListener, Physic
     private void initializeHud(){
         GUInterface.drawLife(ColorRGBA.Green, "LIFE: " + endurance, 300, 0, 30);
         GUInterface.drawSpeed(ColorRGBA.Green, "Speed: " + (int)vehicle.getCurrentVehicleSpeedKmHour(), 500, 0, 30);
+        
+        
     }
     // ---------------------------------- GUI ---------------------------------------------
 
